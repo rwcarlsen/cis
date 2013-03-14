@@ -6,3 +6,4 @@ type Foo int
 type Cheese string
 
 var swiss Cheese = "swiss"
+var cheddar Cheese = "cheddar"
