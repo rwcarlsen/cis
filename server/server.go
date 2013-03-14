@@ -9,52 +9,81 @@ import (
 	"flag"
 	"encoding/json"
 	"io/ioutil"
+
+	//"github.com/rwcarlsen/cis/builder"
 )
 
 var addr = flag.String("addr", "0.0.0.0:8888", "ip and port to listen on")
-var hashes map[string][]string // map[buildername][]hashes
+const (
+	HistCount = 10
+)
+
+var set *CommitSet
 
 func main() {
 	flag.Parse()
-	loadHashes()
+	set = LoadCommits()
 
 	http.HandleFunc("/build-status", StatusHandler)
 	http.HandleFunc("/get-work", GetHandler)
 	http.HandleFunc("/post-results", PostHandler)
-	http.HandleFunc("/commit-push", PushHandler)
+	http.HandleFunc("/push-update", PushHandler)
 
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal(err)
 	}
-	saveHashes()
+
+	_ = set.Save()
 }
 
-func loadHashes() {
+type CommitSet struct {
+	set []Commit
+	// maps builder name to hash of last commit processed
+	builders map[string]string
+}
+
+func LoadCommits() *CommitSet {
+	c := &CommitSet{}
 	data, err := ioutil.ReadFile("hashes.json")
 	if err != nil {
-		return
+		return c
 	}
 
-	if err := json.Unmarshal(data, &hashes); err != nil {
+	if err := json.Unmarshal(data, &c); err != nil {
 		log.Fatal(err)
 	}
+	return c
 }
 
-func saveHashes() {
-	data, err := json.Marshal(hashes)
+func (c *CommitSet) Save() error {
+	data, err := json.Marshal(c)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	f, err := os.Create("hashes.json")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	_, err = f.Write(data)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
+}
+
+func (c *CommitSet) Add(p Push) {
+	if len(c.set) == HistCount {
+		c.set = append([]Commit{p.Commits[0]}, c.set[:len(c.set)-1]...)
+	} else {
+		c.set = append([]Commit{p.Commits[0]}, c.set...)
+	}
+}
+
+func (c *CommitSet) WorkFor(builder string) []string {
+	return nil
 }
 
 func StatusHandler(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +106,7 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 func PushHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("received push notification")
 	data := []byte(r.FormValue("payload"))
+	fmt.Printf("%+v\n", r.Form)
 
 	var push Push
 	if err := json.Unmarshal(data, &push); err != nil {
@@ -84,7 +114,7 @@ func PushHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("---------------decoded:--------------")
-	fmt.Printf("%+v", push)
+	fmt.Printf("%+v\n", push)
 }
 
 type Push struct {
@@ -106,5 +136,4 @@ type Commit struct {
 type Repository struct {
 	Name string `json:"name"`
 	Url string `json:"url"`
-	Homepage string `json:"homepage"`
 }

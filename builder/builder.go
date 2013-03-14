@@ -2,14 +2,13 @@
 package builder
 
 import (
+	"os"
 	"os/exec"
 	"net/http"
 	"path"
 	"path/filepath"
 	"bytes"
 	"encoding/json"
-
-	"github.com/rwcarlsen/cis/server"
 )
 
 const (
@@ -30,7 +29,7 @@ type Builder struct {
 	Root string
 	Name string
 	Server string
-	cmds []*Cmd
+	cmds []*exec.Cmd
 	cmdLabels []string
 }
 
@@ -49,28 +48,30 @@ func (b *Builder) AddCmd(label string, cmd *exec.Cmd) {
 }
 
 func (b *Builder) DoWork(label string, cmd *exec.Cmd) error {
-	resp, err := http.Get(path.Join(b.Server, server.WorkPath))
-	if err != nil {
-		return err
-	}
-
-	hashes := resp.Header[http.CanonicalHeaderKey("hashes")]
-
 	if err := os.Chdir(b.Root); err != nil {
 		return err
 	}
+
+	resp, err := http.Get(path.Join(b.Server, WorkPath))
+	if err != nil {
+		return err
+	}
+	hashes := resp.Header[http.CanonicalHeaderKey("hashes")]
+
 	for _, h := range hashes {
 		if err := GitReset(); err != nil {
 			return err
-		} else if err := CheckoutCmd(h); err != nil {
+		} else if err := GitCheckout(h); err != nil {
 			return err
 		}
 
-		results := b.runAll(h)
-		if err := b.report(results); err != nil {
+		results := b.runAll()
+		if err := b.report(h, results); err != nil {
 			return err
 		}
 	}
+
+	return nil
 }
 
 func (b *Builder) runAll() []Result {
@@ -80,7 +81,7 @@ func (b *Builder) runAll() []Result {
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
 		err := cmd.Run()
-		results[i] = result{
+		results[i] = Result{
 			Label: b.cmdLabels[i],
 			Cmd: cmd.Path,
 			Stdout: stdout.Bytes(),
@@ -88,19 +89,19 @@ func (b *Builder) runAll() []Result {
 			Error: err,
 		}
 		stdout.Reset()
-		stdin.Reset()
+		stderr.Reset()
 	}
 	return results
 }
 
-func (b *Builder) report(results []Result) error {
+func (b *Builder) report(hash string, results []Result) error {
 	data, err := json.Marshal(results)
 	if err != nil {
 		return err
 	}
 
 	body := bytes.NewBuffer(data)
-	resp, err := http.Post(path.Join(b.Server, server.ResultsPath), "text/json", body)
+	_, err = http.Post(path.Join(b.Server, ResultsPath), "text/json", body)
 	if err != nil {
 		return err
 	}
