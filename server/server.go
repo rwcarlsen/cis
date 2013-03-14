@@ -81,6 +81,8 @@ func PushHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body.Close()
 
+	data = data[len("paload="):]
+
 	var push Push
 	if err := json.Unmarshal(data, &push); err != nil {
 		log.Fatal(err)
@@ -99,13 +101,13 @@ type Push struct {
 type Commit struct {
 	Id string `json:"id"`
 	Message string `json:"message"`
-	Timestamp string `json:"message"`
-	Url string `json:"message"`
+	Timestamp string `json:"committed_date"`
+	Url string `json:"commit_url"`
 	Author map[string]string `json:"author"`
 }
 
 type Repository struct {
 	Name string `json:"name"`
-	Url string `json:"url"`
+	Url string `json:"repo_url"`
 	Homepage string `json:"homepage"`
 }
