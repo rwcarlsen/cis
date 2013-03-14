@@ -75,17 +75,16 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PushHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	r.Body.Close()
+	fmt.Println("received push notification")
+	data := []byte(r.FormValue("payload"))
 
 	var push Push
 	if err := json.Unmarshal(data, &push); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(push)
+
+	fmt.Println("---------------decoded:--------------")
+	fmt.Printf("%+v", push)
 }
 
 type Push struct {
@@ -93,14 +92,14 @@ type Push struct {
 	After string `json:"after"`
 	Ref string `json:"ref"`
 	Commits []Commit `json:"commits"`
-	repository Repository `json:"repository"`
+	Repo Repository `json:"repository"`
 }
 
 type Commit struct {
 	Id string `json:"id"`
 	Message string `json:"message"`
-	Timestamp string `json:"message"`
-	Url string `json:"message"`
+	Timestamp string `json:"timestamp"`
+	Url string `json:"url"`
 	Author map[string]string `json:"author"`
 }
 
