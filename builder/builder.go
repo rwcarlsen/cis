@@ -6,9 +6,17 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"bytes"
+	"encoding/json"
 
 	"github.com/rwcarlsen/cis/server"
 )
+
+const (
+	WorkPath = "get-work"
+	ResultsPath = "post-results"
+)
+
 
 type Result struct {
 	Label string
@@ -24,7 +32,6 @@ type Builder struct {
 	Server string
 	cmds []*Cmd
 	cmdLabels []string
-	Results map[string][]Result // map[hash][]Result
 }
 
 func New(name, root, addr string) *Builder {
@@ -55,45 +62,60 @@ func (b *Builder) DoWork(label string, cmd *exec.Cmd) error {
 	for _, h := range hashes {
 		if err := GitReset(); err != nil {
 			return err
-		}
-		if err := CheckoutCmd(h); err != nil {
+		} else if err := CheckoutCmd(h); err != nil {
 			return err
 		}
+
 		results := b.runAll(h)
+		if err := b.report(results); err != nil {
+			return err
+		}
 	}
 }
 
 func (b *Builder) runAll() []Result {
 	var stdout, stderr bytes.Buffer
+	results := make([]Result, len(b.cmds))
 	for i, cmd := range b.cmds {
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
 		err := cmd.Run()
-		r := result{
+		results[i] = result{
 			Label: b.cmdLabels[i],
-			Cmd: 
+			Cmd: cmd.Path,
+			Stdout: stdout.Bytes(),
+			Stderr: stderr.Bytes(),
+			Error: err,
+		}
+		stdout.Reset()
+		stdin.Reset()
 	}
-
+	return results
 }
 
-func (b *Builder) ReportWork() error {
+func (b *Builder) report(results []Result) error {
+	data, err := json.Marshal(results)
+	if err != nil {
+		return err
+	}
+
+	body := bytes.NewBuffer(data)
+	resp, err := http.Post(path.Join(b.Server, server.ResultsPath), "text/json", body)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func GitCheckout(refspec string) error {
 	cmd := exec.Command("git", "checkout", refspec)
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
+	return cmd.Run()
 }
 
 func GitReset() error {
 	cmd := exec.Command("git", "reset", "--hard", "HEAD")
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
+	return cmd.Run()
 }
 
 
