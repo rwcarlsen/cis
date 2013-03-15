@@ -19,6 +19,9 @@ func main() {
 	cmd := exec.Command("go", "build", "./...")
 	bldr.AddCmd("build-all", cmd)
 
+	cmd = exec.Command("go", "test", "./...")
+	bldr.AddCmd("test-all", cmd)
+
 	hashes, err := bldr.DoWork()
 	if err != nil {
 		log.Fatal(err)

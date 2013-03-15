@@ -70,7 +70,8 @@
     </style>
   </head>
 
-  {{$builders := $.Builders}}
+  {{$builders := $.GetInfo}}
+  {{$serv := .}}
   <body>
     <h1>Cyclus Build Status</h1>
 
@@ -97,8 +98,8 @@
       <tr>
         <th>&nbsp;</th>
     {{range $b := $builders}}
-    {{range $r := $b.Results}}
-        <th class="result arch" title="{{$b.Name}}">{{$r.Label}}</th>
+    {{range $label := $b.Labels}}
+        <th class="result arch" title="{{$b.Name}}">{{$label}}</th>
     {{end}}
     {{end}}
       </tr>
@@ -106,12 +107,13 @@
       <tr class="commit">
         <td class="hash"><a href="{{$c.Url}}">{{$c.Hash}}</a></td>
         {{range $b := $builders}}
-        {{range $r := $b.Results}}
+        {{range $label := $b.Labels}}
           <td class="result">
+            {{$r := $serv.GetResult $c.Hash $b.Name $label}}
             {{if $r.Pass}}
-              <span class="ok">ok</span>
+            <span class="ok">ok</span>
             {{else}}
-            <a href="/log/{{$c.Hash}}/{{$b.Name}}/{{$r.Label}}" class="fail">fail</a>
+            <a href="/log/{{$c.Hash}}/{{$b.Name}}/{{$label}}" class="fail">fail</a>
             {{end}}
           </td>
         {{end}}

@@ -19,6 +19,7 @@ var branch = flag.String("branch", "master", "branch to track commits for")
 var fpath = flag.String("fpath", "./master.json", "path to file of saved server state")
 
 var serv *builder.Server
+
 var tmpl = template.Must(template.ParseFiles("status.html"))
 
 func main() {

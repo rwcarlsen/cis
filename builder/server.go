@@ -142,16 +142,41 @@ func (s *Server) GetWork(name string) []string {
 	return refs
 }
 
-// Builders returns a list of all builders for which any results have ever
+// GetResult returns the result for the specified commit hash, builder name,
+// and command label.
+func (s *Server) GetResult(hash, name, label string) Result {
+	for _, e := range s.Commits {
+		if e.Hash == hash {
+			results := e.Results[name]
+			if len(results) > 0 {
+				for _, r := range results {
+					if r.Label == label {
+						return r
+					}
+				}
+				return Result{}
+			}
+			return Result{}
+		}
+	}
+	return Result{}
+}
+
+
+// GetInfo returns a list of all builders for which any results have ever
 // been received.
-func (s *Server) Builders() []*BuilderInfo {
+func (s *Server) GetInfo() []*BuilderInfo {
 	bm := map[string]bool{}
 	b := []*BuilderInfo{}
 	for _, e := range s.Commits {
 		for name, results := range e.Results {
 			if !bm[name] {
 				bm[name] = true
-				b = append(b, &BuilderInfo{name, results, len(results)})
+				labels := []string{}
+				for _, r := range results {
+					labels = append(labels, r.Label)
+				}
+				b = append(b, &BuilderInfo{name, labels, len(results)})
 			}
 		}
 	}
@@ -160,7 +185,7 @@ func (s *Server) Builders() []*BuilderInfo {
 
 type BuilderInfo struct {
 	Name string
-	Results []Result
+	Labels []string
 	N int
 }
 
