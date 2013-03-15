@@ -15,11 +15,12 @@ import (
 	"github.com/rwcarlsen/cis/builder"
 )
 
-var addr = flag.String("addr", "0.0.0.0:8888", "ip and port to listen on")
 const (
 	MaxHist = 100
 	MaxWork = 10
 )
+
+var addr = flag.String("addr", "0.0.0.0:8888", "ip and port to listen on")
 
 var serv *Server
 var tmpl = template.Must(template.ParseFiles("status.html"))

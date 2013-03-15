@@ -47,7 +47,7 @@ func (b *Builder) AddCmd(label string, cmd *exec.Cmd) {
 	b.cmdLabels = append(b.cmdLabels, label)
 }
 
-func (b *Builder) DoWork(label string, cmd *exec.Cmd) error {
+func (b *Builder) DoWork() error {
 	if err := os.Chdir(b.Root); err != nil {
 		return err
 	}
