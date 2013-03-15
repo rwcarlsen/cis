@@ -47,31 +47,35 @@ func (b *Builder) AddCmd(label string, cmd *exec.Cmd) {
 	b.cmdLabels = append(b.cmdLabels, label)
 }
 
-func (b *Builder) DoWork() error {
+// DoWork fetches a set of commit hashes from the master build server, executes
+// all commands for each commit, and reports the result back to the master.  It
+// returns a list of commit hashes that were processed and any errors that
+// occured.
+func (b *Builder) DoWork() ([]string, error) {
 	if err := os.Chdir(b.Root); err != nil {
-		return err
+		return nil, err
 	}
 
-	resp, err := http.Get(path.Join(b.Server, WorkPath, b.Name))
+	resp, err := http.Get(b.Server + "/" + WorkPath + "/" + b.Name)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	hashes := resp.Header[http.CanonicalHeaderKey("hashes")]
 
 	for _, h := range hashes {
 		if err := GitReset(); err != nil {
-			return err
+			return nil, err
 		} else if err := GitCheckout(h); err != nil {
-			return err
+			return nil, err
 		}
 
 		results := b.runAll()
 		if err := b.report(h, results); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return hashes, nil
 }
 
 func (b *Builder) runAll() []Result {

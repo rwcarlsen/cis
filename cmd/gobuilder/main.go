@@ -10,7 +10,7 @@ import (
 )
 
 var root = flag.String("path", ".", "path to main repo root dir")
-var addr = flag.String("addr", "localhost:8888", "url for build server master")
+var addr = flag.String("addr", "http://127.0.0.1:8888", "url for build server master")
 
 func main() {
 	flag.Parse()
@@ -19,7 +19,10 @@ func main() {
 	cmd := exec.Command("go", "build", "./...")
 	bldr.AddCmd("go-build-all", cmd)
 
-	if err := bldr.DoWork(); err != nil {
+	hashes, err := bldr.DoWork()
+	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Printf(" processed %v hashes:\n%v\n", len(hashes), hashes)
 }

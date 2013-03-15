@@ -1,114 +1,17 @@
 
-package main
+package builder
 
 import (
 	"os"
 	"fmt"
-	"log"
-	"net/http"
-	"flag"
-	"encoding/json"
 	"io/ioutil"
-	"html/template"
-
-	"github.com/gorilla/mux"
-	"github.com/rwcarlsen/cis/builder"
+	"encoding/json"
 )
 
 const (
 	MaxHist = 100
 	MaxWork = 10
 )
-
-var addr = flag.String("addr", "0.0.0.0:8888", "ip and port to listen on")
-
-var serv *Server
-var tmpl = template.Must(template.ParseFiles("status.html"))
-
-func main() {
-	flag.Parse()
-	serv = LoadServer("./server-data.json")
-
-	r := mux.NewRouter()
-	r.HandleFunc("/build-status", StatusHandler)
-	r.HandleFunc("/get-work/{builder:.*}", GetHandler)
-	r.HandleFunc("/post-results/{builder:.*}/{hash:.*}", PostHandler)
-	r.HandleFunc("/push-update", PushHandler)
-	r.HandleFunc("/log/{hash:.*}/{builder:.*}/{label:.*}", LogHandler)
-
-	http.Handle("/", r)
-	log.Printf("listening on %v", *addr)
-	if err := http.ListenAndServe(*addr, nil); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func StatusHandler(w http.ResponseWriter, r *http.Request) {
-	if err := tmpl.Execute(w, serv); err != nil {
-		log.Print(err)
-	}
-}
-
-func LogHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	hash := vars["hash"]
-	name := vars["builder"]
-	label := vars["label"]
-
-	data, err := serv.GetLog(hash, name, label)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	w.Write(data)
-}
-
-func GetHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	name := vars["builder"]
-
-	hashes := serv.GetWork(name)
-	for _, h := range hashes {
-		w.Header().Add("hashes", h)
-	}
-}
-
-func PostHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	var results []builder.Result
-	if err := json.Unmarshal(data, &results); err != nil {
-		log.Print(err)
-		return
-	}
-
-	vars := mux.Vars(r)
-	name := vars["builder"]
-	hash := vars["hash"]
-	if err := serv.ReportWork(name, hash, results); err != nil {
-		log.Print(err)
-	}
-}
-
-func PushHandler(w http.ResponseWriter, r *http.Request) {
-	data := []byte(r.FormValue("payload"))
-
-	var p Push
-	if err := json.Unmarshal(data, &p); err != nil {
-		log.Print(err)
-		return
-	}
-
-	if len(p.Commits) > 0 {
-		// only add the most recent (the new head) commit of the push
-		serv.Add(p.Commits[len(p.Commits)-1])
-	}
-}
 
 type Push struct {
 	Before string `json:"before"`
@@ -127,7 +30,7 @@ type Commit struct {
 
 type Entry struct {
 	Commit
-	Results map[string][]builder.Result
+	Results map[string][]Result
 }
 
 type Server struct {
@@ -135,18 +38,18 @@ type Server struct {
 	Commits []*Entry
 }
 
-func LoadServer(fpath string) *Server {
+func LoadServer(fpath string) (*Server, error) {
 	s := &Server{Path: fpath}
 
 	data, err := ioutil.ReadFile(fpath)
 	if err != nil {
-		return s
+		return s, nil
 	}
 
 	if err := json.Unmarshal(data, &s); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return s
+	return s, nil
 }
 
 func (s *Server) Save() error {
@@ -170,26 +73,32 @@ func (s *Server) Save() error {
 
 // ReportWork adds work completed by the named builder for the commit id
 // hash.
-func (s *Server) ReportWork(name, hash string, results []builder.Result) error {
+func (s *Server) ReportWork(name, hash string, results []Result) error {
 	for _, e := range s.Commits {
 		if e.Hash == hash {
 			e.Results[name] = results
+			s.Save()
 			return nil
 		}
 	}
 	return fmt.Errorf("Work reported for untracked commit id: %v", hash)
 }
 
+func (s *Server) dupCommit(hash string) bool {
+	for _, e := range s.Commits {
+		if e.Hash == hash {
+			return true
+		}
+	}
+	return false
+}
+
 // Add adds commits to the list of tracked hashes that will be distributed
 // to builders.  Commit order should be from oldest to newest.
 func (s *Server) Add(commits ...Commit) {
 	for _, commit := range commits {
-		// prevent duplicates
-		for _, e := range s.Commits {
-			if e.Hash == commit.Hash {
-				break
-			}
-			e := &Entry{Commit: commit, Results: make(map[string][]builder.Result)}
+		if !s.dupCommit(commit.Hash) {
+			e := &Entry{Commit: commit, Results: make(map[string][]Result)}
 			s.Commits = append(s.Commits, e)
 		}
 	}
@@ -198,6 +107,7 @@ func (s *Server) Add(commits ...Commit) {
 		i := len(s.Commits) - MaxHist
 		s.Commits = append([]*Entry{}, s.Commits[i:]...)
 	}
+	s.Save()
 }
 
 // GetLog returns the result log for the specified commit hash, builder
@@ -225,7 +135,8 @@ func (s *Server) GetLog(hash, name, label string) ([]byte, error) {
 // been processed by the named builder
 func (s *Server) GetWork(name string) []string {
 	refs := []string{}
-	for _, e := range s.Commits[:MaxWork] {
+	n := min(MaxWork, len(s.Commits))
+	for _, e := range s.Commits[:n] {
 		if len(e.Results[name]) == 0 {
 			refs = append(refs, e.Hash)
 		}
@@ -251,7 +162,14 @@ func (s *Server) Builders() []*BuilderInfo {
 
 type BuilderInfo struct {
 	Name string
-	Results []builder.Result
+	Results []Result
 	N int
+}
+
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
 }
 
