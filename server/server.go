@@ -9,6 +9,7 @@ import (
 	"flag"
 	"encoding/json"
 	"io/ioutil"
+	"html/template"
 
 	"github.com/gorilla/mux"
 	"github.com/rwcarlsen/cis/builder"
@@ -21,6 +22,7 @@ const (
 )
 
 var serv *Server
+var tmpl = template.Must(template.ParseFiles("status.html"))
 
 func main() {
 	flag.Parse()
@@ -31,6 +33,7 @@ func main() {
 	r.HandleFunc("/get-work/{builder:.*}", GetHandler)
 	r.HandleFunc("/post-results/{builder:.*}/{hash:.*}", PostHandler)
 	r.HandleFunc("/push-update", PushHandler)
+	r.HandleFunc("/log/{hash:.*}/{builder:.*}/{label:.*}", LogHandler)
 
 	http.Handle("/", r)
 	log.Printf("listening on %v", *addr)
@@ -40,10 +43,23 @@ func main() {
 }
 
 func StatusHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := ioutil.ReadFile("index.html")
-	if err != nil {
+	if err := tmpl.Execute(w, serv); err != nil {
 		log.Print(err)
 	}
+}
+
+func LogHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	hash := vars["hash"]
+	name := vars["builder"]
+	label := vars["label"]
+
+	data, err := serv.GetLog(hash, name, label)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
 	w.Write(data)
 }
 
@@ -106,11 +122,6 @@ type Commit struct {
 	Timestamp string `json:"timestamp"`
 	Url string `json:"url"`
 	Author map[string]string `json:"author"`
-}
-
-func die(err error) {
-	serv.Save()
-	log.Fatal(err)
 }
 
 type Entry struct {
@@ -188,6 +199,27 @@ func (s *Server) Add(commits ...Commit) {
 	}
 }
 
+// GetLog returns the result log for the specified commit hash, builder
+// name, and command label.
+func (s *Server) GetLog(hash, name, label string) ([]byte, error) {
+    err := fmt.Errorf("%v, %v, %v combo has no result", hash, name, label)
+	for _, e := range s.Commits {
+		if e.Hash == hash {
+			results := e.Results[name]
+			if len(results) > 0 {
+				for _, r := range results {
+					if r.Label == label {
+						return r.Output, nil
+					}
+				}
+				return nil, err
+			}
+			return nil, err
+		}
+	}
+	return nil, err
+}
+
 // GetWork returns a list of the most recent commit id's that have not yet
 // been processed by the named builder
 func (s *Server) GetWork(name string) []string {
@@ -202,17 +234,23 @@ func (s *Server) GetWork(name string) []string {
 
 // Builders returns a list of all builders for which any results have ever
 // been received.
-func (s *Server) Builders() []string {
+func (s *Server) Builders() []*BuilderInfo {
 	bm := map[string]bool{}
-	b := []string{}
+	b := []*BuilderInfo{}
 	for _, e := range s.Commits {
-		for name, _ := range e.Results {
+		for name, results := range e.Results {
 			if !bm[name] {
 				bm[name] = true
-				b = append(b, name)
+				b = append(b, &BuilderInfo{name, results, len(results)})
 			}
 		}
 	}
 	return b
+}
+
+type BuilderInfo struct {
+	Name string
+	Results []builder.Result
+	N int
 }
 

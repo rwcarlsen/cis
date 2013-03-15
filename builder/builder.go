@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"bytes"
 	"encoding/json"
+	"io"
 )
 
 const (
@@ -19,8 +20,8 @@ const (
 type Result struct {
 	Label string
 	Cmd string
-	Stdout []byte
-	Stderr []byte
+	Pass bool
+	Output []byte
 	Error string
 }
 
@@ -74,20 +75,21 @@ func (b *Builder) DoWork(label string, cmd *exec.Cmd) error {
 }
 
 func (b *Builder) runAll() []Result {
-	var stdout, stderr bytes.Buffer
+	var output, stderr bytes.Buffer
+	multi := io.MultiWriter(&output, &stderr)
 	results := make([]Result, len(b.cmds))
 	for i, cmd := range b.cmds {
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
+		cmd.Stdout = &output
+		cmd.Stderr = multi
 		err := cmd.Run()
 		results[i] = Result{
 			Label: b.cmdLabels[i],
 			Cmd: cmd.Path,
-			Stdout: stdout.Bytes(),
-			Stderr: stderr.Bytes(),
+			Pass: stderr.Len() == 0,
+			Output: output.Bytes(),
 			Error: err.Error(),
 		}
-		stdout.Reset()
+		output.Reset()
 		stderr.Reset()
 	}
 	return results

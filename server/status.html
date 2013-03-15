@@ -72,13 +72,14 @@
     </style>
   </head>
 
+  {{$builders := $.Builders}}
   <body>
     <h1>Cyclus Build Status</h1>
 
     <table class="build">
       <colgroup class="col-hash"></colgroup>
-    {{range $.Builders}}
-      <colgroup class="col-result" span="{{.Name}}"></colgroup>
+    {{range $builders}}
+      <colgroup class="col-result" span="{{$.N}}"></colgroup>
     {{end}}
       <colgroup class="col-user"></colgroup>
       <colgroup class="col-time"></colgroup>
@@ -88,35 +89,38 @@
       </tr>
       <tr>
         <th>&nbsp;</th>
+    {{range $builders}}
+        <th colspan="{{.N}}">{{.Name}}</th>
+    {{end}}
         <th></th>
         <th></th>
         <th></th>
       </tr>
       <tr>
         <th>&nbsp;</th>
-    {{range $.Builders}}
-        <th class="result arch" title="{{.}}">{{builderArchShort .}}</th>
+    {{range $b := $builders}}
+    {{range $r := $b.Results}}
+        <th class="result arch" title="{{.Name}}">{{$r.Label}}</th>
+    {{end}}
     {{end}}
       </tr>
     {{range $c := $.Commits}}
       <tr class="commit">
-        <td class="hash"><a href="{{repoURL .Hash ""}}">{{shortHash .Hash}}</a></td>
-        {{range $c.Builders}}
+        <td class="hash"><a href="{{$c.Url}}">{{$c.Hash}}</a></td>
+        {{range $b := $builders}}
+        {{range $r := $b.Results}}
           <td class="result">
-            {{with $c.Result . ""}}
-              {{if .OK}}
-                <span class="ok">ok</span>
-              {{else}}
-                <a href="/log/{{.LogHash}}" class="fail">fail</a>
-              {{end}}
+            {{if $r.Pass}}
+              <span class="ok">ok</span>
             {{else}}
-              &nbsp;
+            <a href="/log/{{$c.Hash}}/{{$b.Name}}/{{$r.Label}}" class="fail">fail</a>
             {{end}}
           </td>
         {{end}}
-        <td class="user" title="{{.User}}">{{shortUser .User}}</td>
-        <td class="time">{{.Time.Format "Mon 02 Jan 15:04"}}</td>
-        <td class="desc" title="{{.Desc}}">{{shortDesc .Desc}}</td>
+        {{end}}
+        <td class="user" title="{{$c.Author.Name}}">{{$c.Author.name}}</td>
+        <td class="time">{{$c.Timestamp}}</td>
+        <td class="desc" title="{{$c.Message}}">{{$c.Message}}</td>
       </tr>
     {{end}}
     </table>
