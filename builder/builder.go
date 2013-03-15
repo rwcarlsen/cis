@@ -16,13 +16,12 @@ const (
 	ResultsPath = "post-results"
 )
 
-
 type Result struct {
 	Label string
 	Cmd string
 	Stdout []byte
 	Stderr []byte
-	Error error
+	Error string
 }
 
 type Builder struct {
@@ -52,7 +51,7 @@ func (b *Builder) DoWork(label string, cmd *exec.Cmd) error {
 		return err
 	}
 
-	resp, err := http.Get(path.Join(b.Server, WorkPath))
+	resp, err := http.Get(path.Join(b.Server, WorkPath, b.Name))
 	if err != nil {
 		return err
 	}
@@ -86,7 +85,7 @@ func (b *Builder) runAll() []Result {
 			Cmd: cmd.Path,
 			Stdout: stdout.Bytes(),
 			Stderr: stderr.Bytes(),
-			Error: err,
+			Error: err.Error(),
 		}
 		stdout.Reset()
 		stderr.Reset()
