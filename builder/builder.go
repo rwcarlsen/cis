@@ -85,13 +85,18 @@ func (b *Builder) runAll() []Result {
 	for i, cmd := range b.cmds {
 		cmd.Stdout = &output
 		cmd.Stderr = multi
-		err := cmd.Run()
+
+		errtxt := ""
+		if err := cmd.Run(); err != nil {
+			errtxt = err.Error()
+		}
+		
 		results[i] = Result{
 			Label: b.cmdLabels[i],
 			Cmd: cmd.Path,
 			Pass: stderr.Len() == 0,
 			Output: output.Bytes(),
-			Error: err.Error(),
+			Error: errtxt,
 		}
 		output.Reset()
 		stderr.Reset()
