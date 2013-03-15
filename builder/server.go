@@ -53,7 +53,7 @@ func LoadServer(fpath string) (*Server, error) {
 }
 
 func (s *Server) Save() error {
-	data, err := json.Marshal(s)
+	data, err := json.MarshalIndent(s, "", "    ")
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,6 @@ func (s *Server) ReportWork(name, hash string, results []Result) error {
 	for _, e := range s.Commits {
 		if e.Hash == hash {
 			e.Results[name] = results
-			s.Save()
 			return nil
 		}
 	}
@@ -107,7 +106,6 @@ func (s *Server) Add(commits ...Commit) {
 		i := len(s.Commits) - MaxHist
 		s.Commits = append([]*Entry{}, s.Commits[i:]...)
 	}
-	s.Save()
 }
 
 // GetLog returns the result log for the specified commit hash, builder

@@ -95,6 +95,10 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 	}
 	log.Printf("Received hash %v results from builder %v", hash, name)
+
+	if err := serv.Save(); err != nil {
+		log.Print(err)
+	}
 }
 
 func PushHandler(w http.ResponseWriter, r *http.Request) {
@@ -116,6 +120,10 @@ func PushHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Received pushed commit: %v", c.Hash)
 		// only add the most recent (the new head) commit of the push
 		serv.Add(c)
+	}
+
+	if err := serv.Save(); err != nil {
+		log.Print(err)
 	}
 }
 

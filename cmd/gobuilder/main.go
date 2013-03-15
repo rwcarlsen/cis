@@ -17,7 +17,7 @@ func main() {
 	bldr := builder.New("robert-1", *root, *addr)
 
 	cmd := exec.Command("go", "build", "./...")
-	bldr.AddCmd("go-build-all", cmd)
+	bldr.AddCmd("build-all", cmd)
 
 	hashes, err := bldr.DoWork()
 	if err != nil {

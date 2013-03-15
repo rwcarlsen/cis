@@ -5,11 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"net/http"
-	"path"
 	"path/filepath"
 	"bytes"
 	"encoding/json"
 	"io"
+	"fmt"
 )
 
 const (
@@ -82,7 +82,9 @@ func (b *Builder) runAll() []Result {
 	var output, stderr bytes.Buffer
 	multi := io.MultiWriter(&output, &stderr)
 	results := make([]Result, len(b.cmds))
-	for i, cmd := range b.cmds {
+	for i, tmp := range b.cmds {
+		tmp2 := *tmp // this allows reuse/resetting of the same cmd obj
+		cmd := &tmp2
 		cmd.Stdout = &output
 		cmd.Stderr = multi
 
@@ -90,11 +92,11 @@ func (b *Builder) runAll() []Result {
 		if err := cmd.Run(); err != nil {
 			errtxt = err.Error()
 		}
-		
+
 		results[i] = Result{
 			Label: b.cmdLabels[i],
 			Cmd: cmd.Path,
-			Pass: stderr.Len() == 0,
+			Pass: stderr.Len() + len(errtxt) == 0 ,
 			Output: output.Bytes(),
 			Error: errtxt,
 		}
@@ -111,7 +113,8 @@ func (b *Builder) report(hash string, results []Result) error {
 	}
 
 	body := bytes.NewBuffer(data)
-	_, err = http.Post(path.Join(b.Server, ResultsPath), "text/json", body)
+	full := fmt.Sprintf("%v/%v/%v/%v", b.Server, ResultsPath, b.Name, hash)
+	_, err = http.Post(full, "text/json", body)
 	if err != nil {
 		return err
 	}

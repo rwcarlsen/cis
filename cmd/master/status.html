@@ -2,8 +2,6 @@
 <html>
   <head>
     <title>Cyclus Build Dashboard</title>
-    <link href="/static/my.css" rel="stylesheet" media="screen">
-    <link rel="shortcut icon" href="/static/favicon.ico" />
     <style>
       body {
         font-family: sans-serif;
@@ -78,8 +76,8 @@
 
     <table class="build">
       <colgroup class="col-hash"></colgroup>
-    {{range $builders}}
-      <colgroup class="col-result" span="{{$.N}}"></colgroup>
+    {{range $b := $builders}}
+      <colgroup class="col-result" span="{{$b.N}}"></colgroup>
     {{end}}
       <colgroup class="col-user"></colgroup>
       <colgroup class="col-time"></colgroup>
@@ -89,8 +87,8 @@
       </tr>
       <tr>
         <th>&nbsp;</th>
-    {{range $builders}}
-        <th colspan="{{.N}}">{{.Name}}</th>
+    {{range $b := $builders}}
+        <th colspan="{{$b.N}}">{{$b.Name}}</th>
     {{end}}
         <th></th>
         <th></th>
@@ -100,7 +98,7 @@
         <th>&nbsp;</th>
     {{range $b := $builders}}
     {{range $r := $b.Results}}
-        <th class="result arch" title="{{.Name}}">{{$r.Label}}</th>
+        <th class="result arch" title="{{$b.Name}}">{{$r.Label}}</th>
     {{end}}
     {{end}}
       </tr>
