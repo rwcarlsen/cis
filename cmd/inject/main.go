@@ -1,12 +1,11 @@
-
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
 	"net/url"
-	"encoding/json"
 
 	"github.com/rwcarlsen/cis/builder"
 )
@@ -20,12 +19,12 @@ func main() {
 	commit := flag.Arg(1)
 
 	p := builder.Push{
-		Ref: branch,
-		After: commit,
+		Ref:    branch,
+		After:  commit,
 		Before: commit,
 		Commits: []builder.Commit{
 			builder.Commit{
-				Hash: commit,
+				Hash:    commit,
 				Message: "<forced injection>",
 			},
 		},
@@ -42,9 +41,9 @@ func main() {
 	vals.Add("payload", string(data))
 
 	full := &url.URL{
-		Scheme: "http",
-		Path: "/push-update",
-		Host: *addr,
+		Scheme:   "http",
+		Path:     "/push-update",
+		Host:     *addr,
 		RawQuery: vals.Encode(),
 	}
 

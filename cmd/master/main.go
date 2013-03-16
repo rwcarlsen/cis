@@ -1,13 +1,12 @@
-
 package main
 
 import (
+	"encoding/json"
+	"flag"
+	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"flag"
-	"encoding/json"
-	"io/ioutil"
-	"html/template"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -127,4 +126,3 @@ func PushHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 	}
 }
-

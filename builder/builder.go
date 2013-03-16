@@ -1,43 +1,42 @@
-
 package builder
 
 import (
-	"os"
-	"os/exec"
-	"net/http"
-	"path/filepath"
 	"bytes"
 	"encoding/json"
-	"io"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 )
 
 const (
-	WorkPath = "get-work"
+	WorkPath    = "get-work"
 	ResultsPath = "post-results"
 )
 
 type Result struct {
-	Label string
-	Cmd string
-	Pass bool
+	Label  string
+	Cmd    string
+	Pass   bool
 	Output []byte
-	Error string
+	Error  string
 }
 
 type Builder struct {
-	Root string
-	Name string
-	Server string
-	cmds []*exec.Cmd
+	Root      string
+	Name      string
+	Server    string
+	cmds      []*exec.Cmd
 	cmdLabels []string
 }
 
 func New(name, root, addr string) *Builder {
 	dir, _ := filepath.Abs(root)
 	return &Builder{
-		Root: dir,
-		Name: name,
+		Root:   dir,
+		Name:   name,
 		Server: addr,
 	}
 }
@@ -94,11 +93,11 @@ func (b *Builder) runAll() []Result {
 		}
 
 		results[i] = Result{
-			Label: b.cmdLabels[i],
-			Cmd: cmd.Path,
-			Pass: stderr.Len() + len(errtxt) == 0 ,
+			Label:  b.cmdLabels[i],
+			Cmd:    cmd.Path,
+			Pass:   stderr.Len()+len(errtxt) == 0,
 			Output: output.Bytes(),
-			Error: errtxt,
+			Error:  errtxt,
 		}
 		output.Reset()
 		stderr.Reset()
@@ -131,5 +130,3 @@ func GitReset() error {
 	cmd := exec.Command("git", "reset", "--hard", "HEAD")
 	return cmd.Run()
 }
-
-

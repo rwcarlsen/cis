@@ -1,11 +1,10 @@
-
 package builder
 
 import (
-	"os"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"encoding/json"
+	"os"
 )
 
 const (
@@ -14,18 +13,18 @@ const (
 )
 
 type Push struct {
-	Before string `json:"before"`
-	After string `json:"after"`
-	Ref string `json:"ref"`
+	Before  string   `json:"before"`
+	After   string   `json:"after"`
+	Ref     string   `json:"ref"`
 	Commits []Commit `json:"commits"`
 }
 
 type Commit struct {
-	Hash string `json:"id"`
-	Message string `json:"message"`
-	Timestamp string `json:"timestamp"`
-	Url string `json:"url"`
-	Author map[string]string `json:"author"`
+	Hash      string            `json:"id"`
+	Message   string            `json:"message"`
+	Timestamp string            `json:"timestamp"`
+	Url       string            `json:"url"`
+	Author    map[string]string `json:"author"`
 }
 
 type Entry struct {
@@ -34,7 +33,7 @@ type Entry struct {
 }
 
 type Server struct {
-	Path string
+	Path    string
 	Commits []*Entry
 }
 
@@ -111,7 +110,7 @@ func (s *Server) Add(commits ...Commit) {
 // GetLog returns the result log for the specified commit hash, builder
 // name, and command label.
 func (s *Server) GetLog(hash, name, label string) ([]byte, error) {
-    err := fmt.Errorf("%v, %v, %v combo has no result", hash, name, label)
+	err := fmt.Errorf("%v, %v, %v combo has no result", hash, name, label)
 	for _, e := range s.Commits {
 		if e.Hash == hash {
 			results := e.Results[name]
@@ -162,7 +161,6 @@ func (s *Server) GetResult(hash, name, label string) Result {
 	return Result{}
 }
 
-
 // GetInfo returns a list of all builders for which any results have ever
 // been received.
 func (s *Server) GetInfo() []*BuilderInfo {
@@ -184,9 +182,9 @@ func (s *Server) GetInfo() []*BuilderInfo {
 }
 
 type BuilderInfo struct {
-	Name string
+	Name   string
 	Labels []string
-	N int
+	N      int
 }
 
 func min(x, y int) int {
@@ -195,4 +193,3 @@ func min(x, y int) int {
 	}
 	return y
 }
-
