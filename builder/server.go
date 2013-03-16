@@ -48,6 +48,7 @@ func LoadServer(fpath string) (*Server, error) {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, err
 	}
+	s.Path = fpath
 	return s, nil
 }
 
