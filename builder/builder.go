@@ -30,6 +30,7 @@ type Builder struct {
 	Server    string
 	cmds      []*exec.Cmd
 	cmdLabels []string
+	cmdWithHash []bool
 }
 
 func New(name, root, addr string) *Builder {
@@ -41,9 +42,14 @@ func New(name, root, addr string) *Builder {
 	}
 }
 
-func (b *Builder) AddCmd(label string, cmd *exec.Cmd) {
+// AddCmd adds a command to be executed every time this builder receives a
+// unit of work from the master build server.  If withHash is true, the
+// unit-of-work commit hash will be included as the last argument to the
+// command.
+func (b *Builder) AddCmd(label string, cmd *exec.Cmd, withHash bool) {
 	b.cmds = append(b.cmds, cmd)
 	b.cmdLabels = append(b.cmdLabels, label)
+	b.cmdWithHash = append(b.cmdWithHash, withHash)
 }
 
 // DoWork fetches a set of commit hashes from the master build server, executes
@@ -62,13 +68,7 @@ func (b *Builder) DoWork() ([]string, error) {
 	hashes := resp.Header[http.CanonicalHeaderKey("hashes")]
 
 	for _, h := range hashes {
-		if err := GitReset(); err != nil {
-			return nil, err
-		} else if err := GitCheckout(h); err != nil {
-			return nil, err
-		}
-
-		results := b.runAll()
+		results := b.runAll(h)
 		if err := b.report(h, results); err != nil {
 			return nil, err
 		}
@@ -77,7 +77,7 @@ func (b *Builder) DoWork() ([]string, error) {
 	return hashes, nil
 }
 
-func (b *Builder) runAll() []Result {
+func (b *Builder) runAll(hash string) []Result {
 	var output, stderr bytes.Buffer
 	multi := io.MultiWriter(&output, &stderr)
 	results := make([]Result, len(b.cmds))
@@ -86,6 +86,10 @@ func (b *Builder) runAll() []Result {
 		cmd := &tmp2
 		cmd.Stdout = &output
 		cmd.Stderr = multi
+
+		if b.cmdWithHash[i] {
+			cmd.Args = append(cmd.Args, hash)
+		}
 
 		errtxt := ""
 		if err := cmd.Run(); err != nil {
@@ -121,12 +125,3 @@ func (b *Builder) report(hash string, results []Result) error {
 	return nil
 }
 
-func GitCheckout(refspec string) error {
-	cmd := exec.Command("git", "checkout", refspec)
-	return cmd.Run()
-}
-
-func GitReset() error {
-	cmd := exec.Command("git", "reset", "--hard", "HEAD")
-	return cmd.Run()
-}

@@ -111,8 +111,7 @@ func PushHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !strings.Contains(p.Ref, *branch) {
-		log.Printf("received push for untracked branch '%v'", p.Ref)
-		return
+		log.Printf("received commit for untracked branch '%v'", p.Ref)
 	}
 
 	if len(p.Commits) > 0 {
